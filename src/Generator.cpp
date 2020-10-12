@@ -40,7 +40,7 @@ void elGenerator::Clear()
 }
 
 
-bool elGenerator::Generate(elBlock& Block, unsigned int Keep)
+bool elGenerator::Generate(elBlock& Block, bool first, unsigned int Keep)
 {
     // If we don't have any streams return false
     if (m_Streams.size() < 1)
@@ -57,9 +57,15 @@ bool elGenerator::Generate(elBlock& Block, unsigned int Keep)
             Block.Data = shared_array<uint8_t>(new uint8_t[2880 * 8]);
         }
         Block.Flags = 0;
-        Block.SampleCount = 1152; // TODO Fix me!!!
+        if (first) {
+            Block.SampleCount = ENCODER_UNCOM_SAMPLES;
+        }
+        else {
+            Block.SampleCount = 1152; // TODO Fix me!!!
+        }
         Block.Size = 0;
         Block.Offset = 0;
+
     }
     else
     {

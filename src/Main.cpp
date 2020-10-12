@@ -49,7 +49,8 @@ enum EOutputEALayer3
 {
     EOEA_HEADERLESS,
     EOEA_SINGLEBLOCK,
-    EOEA_HEADERB
+    EOEA_HEADERB,
+    EOEA_TWOFILES
 };
 
 struct SArguments
@@ -66,7 +67,8 @@ struct SArguments
         Offset(0),
         OutputFormat(EOF_AUTO),
         OutputEALayer3(EOEA_HEADERLESS),
-        
+        OutputLoop(false),
+
         DecodeParser(elFileDecoder::P_AUTO),
         DecodeOutFormat(elFileDecoder::F_AUTO)
     {
@@ -83,7 +85,8 @@ struct SArguments
     std::streamoff Offset;
     EOutputFormat OutputFormat;
     EOutputEALayer3 OutputEALayer3;
-    
+    bool OutputLoop;
+
     elFileDecoder::Parser DecodeParser;
     elFileDecoder::Format DecodeOutFormat;
 
@@ -206,6 +209,14 @@ bool ParseArguments(SArguments& Args, unsigned long Argc, char* Argv[])
         {
             Args.OutputEALayer3 = EOEA_HEADERB;
         }
+        else if (Arg == "--two-files")
+        {
+            Args.OutputEALayer3 = EOEA_TWOFILES;
+        }
+        else if (Arg == "--loop")
+        {
+            Args.OutputLoop = true;
+        }
         else if (Arg == "-E")
         {
             Args.OutputFormat = EOF_EALAYER3;
@@ -237,8 +248,10 @@ void ShowUsage(const std::string& Program)
     std::cout << "  -b-, --no-banner      Don't show the banner." << std::endl;
     std::cout << std::endl;
     std::cout << "Encoding: " << Program << " -E InputFile [InputFile2 ...] [Options]" << std::endl;
-    std::cout << "  --single-block        Create a stream to be loaded in memory. " << std::endl;
+    std::cout << "  --single-block        Create a stream in the single-block format. " << std::endl;
     std::cout << "  --header-b            Create a stream in the header B format. " << std::endl;
+    std::cout << "  --two-files           Create a stream in the headerless format and a header in the single-block format. " << std::endl;
+    std::cout << "  --loop                Mark the file as loop (for single-block or two-files). " << std::endl;
     std::cout << std::endl;
     std::cout << "If multiple input files are given, they will be be interleaved ";
     std::cout << "into multiple streams" << std::endl << std::endl;
@@ -248,7 +261,7 @@ void ShowUsage(const std::string& Program)
     elBlockLoaderSelector Loader;
 
     for (elBlockLoaderSelector::fsFormatList::const_iterator Fmt = Loader.SelectorList().begin();
-            Fmt != Loader.SelectorList().end(); ++Fmt)
+        Fmt != Loader.SelectorList().end(); ++Fmt)
     {
         std::cout << "   * " << (*Fmt)->GetName() << std::endl;
 
@@ -257,7 +270,7 @@ void ShowUsage(const std::string& Program)
         (*Fmt)->ListSupportedParsers(Parsers);
 
         for (std::vector<std::string>::const_iterator Parser = Parsers.begin();
-                Parser != Parsers.end(); ++Parser)
+            Parser != Parsers.end(); ++Parser)
         {
             std::cout << "      - " << (*Parser) << std::endl;
         }
@@ -268,7 +281,7 @@ void ShowUsage(const std::string& Program)
     return;
 }
 
-int main(int Argc, char **Argv)
+int main(int Argc, char** Argv)
 {
     // Parse the arguments
     SArguments Args;
@@ -310,7 +323,7 @@ int main(int Argc, char **Argv)
     }
 
     // Do we want to encode the file?
-    if (Args.OutputFormat == EOF_EALAYER3)
+    if ((Args.OutputFormat == EOF_EALAYER3))
     {
         try
         {
@@ -334,15 +347,15 @@ int main(int Argc, char **Argv)
             return 1;
         }
     }
-    
+
     // Decode the file
     try
     {
         elFileDecoder decoder;
-        
+
         decoder.SetInput(Args.InputFilename, Args.Offset);
         decoder.SetParser(Args.DecodeParser);
-        
+
         if (Args.AllStreams)
         {
             decoder.SetStream(-1);
@@ -351,7 +364,7 @@ int main(int Argc, char **Argv)
         {
             decoder.SetStream(Args.StreamIndex);
         }
-        
+
         decoder.SetOutput(Args.OutputFilename, Args.DecodeOutFormat);
         decoder.Process();
     }
@@ -377,7 +390,7 @@ int main(int Argc, char **Argv)
         std::cerr << "Crashed." << std::endl;
         return 1;
     }
-    
+
     return 0;
 }
 
@@ -438,7 +451,7 @@ struct elEncodeInput
         LastFrame = &Frame2;
         LastFrame->Gr[0].Used = false;
     }
-        
+
     std::string MpegFile;
     std::string WaveFile;
 
@@ -515,14 +528,14 @@ int Encode(SArguments& Args)
 
     switch (Args.OutputEALayer3)
     {
-        case EOEA_HEADERLESS:
-            Writer = make_shared<elHeaderlessWriter>();
+    case EOEA_SINGLEBLOCK:
+        Writer = make_shared<elSingleBlockWriter>(Args.OutputLoop);
         break;
-        case EOEA_SINGLEBLOCK:
-            Writer = make_shared<elSingleBlockWriter>();
+    case EOEA_HEADERB:
+        Writer = make_shared<elHeaderBWriter>();
         break;
-        case EOEA_HEADERB:
-            Writer = make_shared<elHeaderBWriter>();
+    default:
+        Writer = make_shared<elHeaderlessWriter>();
         break;
     }
     Writer->Initialize(&Output);
@@ -546,13 +559,15 @@ int Encode(SArguments& Args)
             elMpegParser& Parser = *Iter->MpegParser;
             elFrame& CurrentFrame = *Iter->CurrentFrame;
 
+            int countCheck = 0;
             do
             {
-                if (!Parser.ReadFrame(CurrentFrame))
+                if (!Parser.ReadFrame(CurrentFrame) || countCheck > 15)
                 {
                     NoMoreFrames = true;
                     break;
                 }
+                countCheck++;
             } while (!CurrentFrame.Gr[0].Used);
         }
 
@@ -578,17 +593,17 @@ int Encode(SArguments& Args)
         for (elEncodeInputVector::iterator Iter = InputFiles.begin();
             Iter != InputFiles.end(); ++Iter)
         {
-         elFrame*& LastFrame = Iter->LastFrame;
+            elFrame*& LastFrame = Iter->LastFrame;
             elFrame*& CurrentFrame = Iter->CurrentFrame;
 
             if (LastFrame->Gr[0].Used)
             {
                 if (First)
                 {
-                    elUncompressedSampleFrames& Usf = LastFrame->Gr[0].Uncomp;
+                    elUncompressedSampleFrames& Usf = LastFrame->Gr[1].Uncomp; // mis 1 c tout
                     unsigned int TotalCount;
                     WasUsed = true;
-                    Usf.Count = 47;
+                    Usf.Count = ENCODER_UNCOM_SAMPLES;
                     TotalCount = Usf.Count * LastFrame->Gr[0].Channels;
                     Usf.Data = shared_array<short>(new short[TotalCount]);
                     memset(Usf.Data.get(), 0, TotalCount * sizeof(short));
@@ -604,29 +619,27 @@ int Encode(SArguments& Args)
             LastFrame = CurrentFrame;
             CurrentFrame = Temp;
         }
-        
-        if (First && WasUsed)
-        {
-        	First = false;
-        }
 
         // Write the block
-        if (Gen.Generate(Block))
+        if (Gen.Generate(Block, First && WasUsed))
         {
-            if (Args.OutputEALayer3 == EOEA_SINGLEBLOCK)
-            {
+            if (Args.OutputEALayer3 != EOEA_SINGLEBLOCK) {
+                Writer->WriteNextBlock(Block, NoMoreFrames);
+            }
+            if (Args.OutputEALayer3 == EOEA_SINGLEBLOCK || Args.OutputEALayer3 == EOEA_TWOFILES) {
                 AllBlocks.push_back(Block);
                 Block.Data.reset();
                 Block.Clear();
             }
-            else
-            {
-                Writer->WriteNextBlock(Block, NoMoreFrames);
-            }
+        }
+
+        if (First && WasUsed) // etait avant write
+        {
+            First = false;
         }
     }
 
-    if (Args.OutputEALayer3 == EOEA_SINGLEBLOCK)
+    if (Args.OutputEALayer3 == EOEA_SINGLEBLOCK || Args.OutputEALayer3 == EOEA_TWOFILES)
     {
         elBlock ActualBlock;
         ActualBlock.Size = 0;
@@ -639,22 +652,35 @@ int Encode(SArguments& Args)
             ActualBlock.SampleCount += Iter->SampleCount;
         }
 
-        ActualBlock.Data = shared_array<uint8_t>(new uint8_t[ActualBlock.Size]);
-
-        uint8_t* Ptr = ActualBlock.Data.get();
-        for (std::vector<elBlock>::const_iterator Iter = AllBlocks.begin();
-            Iter != AllBlocks.end(); ++Iter)
-        {
-            memcpy(Ptr, Iter->Data.get(), Iter->Size);
-            Ptr += Iter->Size;
-        }
-
-        Ptr = NULL;
-        AllBlocks.clear();
-
         ActualBlock.Channels = Channels;
         ActualBlock.SampleRate = SampleRate;
-        Writer->WriteNextBlock(ActualBlock, true);
+
+        if (Args.OutputEALayer3 == EOEA_SINGLEBLOCK) {
+            ActualBlock.Data = shared_array<uint8_t>(new uint8_t[ActualBlock.Size]);
+
+            uint8_t* Ptr = ActualBlock.Data.get();
+            for (std::vector<elBlock>::const_iterator Iter = AllBlocks.begin();
+                Iter != AllBlocks.end(); ++Iter)
+            {
+                memcpy(Ptr, Iter->Data.get(), Iter->Size);
+                Ptr += Iter->Size;
+            }
+
+            Ptr = NULL;
+            AllBlocks.clear();
+
+            Writer->WriteNextBlock(ActualBlock, true);
+        }
+        else {
+            std::ofstream OutputH;
+            if (!OpenOutputFile(OutputH, Args.OutputFilename + ".header"))
+            {
+                return 1;
+            }
+            shared_ptr<elSingleBlockWriter> WriterH = make_shared<elSingleBlockWriter>(Args.OutputLoop);
+            WriterH->Initialize(&OutputH);
+            WriterH->WriteHeader(ActualBlock);
+        }
     }
     return 0;
 }

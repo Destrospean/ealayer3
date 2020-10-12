@@ -43,3 +43,5 @@ extern int g_Verbose;
 #ifndef NULL
 #define NULL 0
 #endif // NULL
+
+#define ENCODER_UNCOM_SAMPLES 47

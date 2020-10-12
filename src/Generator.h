@@ -47,7 +47,7 @@ public:
      *             there, starting Keep bytes into the data.
      * @returns    Will return true if data was written to the block, false otherwise.
      */
-    virtual bool Generate(elBlock& Block, unsigned int Keep = 0);
+    virtual bool Generate(elBlock& Block, bool first, unsigned int Keep = 0);
 
 protected:
     /**

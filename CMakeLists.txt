@@ -5,7 +5,7 @@ enable_testing ()
 # Set our version number
 set (ealayer3_VERSION_MAJOR 0)
 set (ealayer3_VERSION_MINOR 7)
-set (ealayer3_VERSION_PATCH 0)
+set (ealayer3_VERSION_PATCH 1)
 
 # Find boost and include it
 find_package (Boost 1.36.0 REQUIRED)

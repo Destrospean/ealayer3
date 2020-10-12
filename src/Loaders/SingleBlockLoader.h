@@ -32,4 +32,5 @@ public:
 
 protected:
     unsigned int m_Compression;
+    bool isSecondPart;
 };

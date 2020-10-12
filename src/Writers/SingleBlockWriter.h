@@ -13,6 +13,7 @@ class elSingleBlockWriter : public elBlockWriter
 {
 public:
     elSingleBlockWriter();
+    elSingleBlockWriter(bool isLoop);
     virtual ~elSingleBlockWriter();
 
     /**
@@ -24,4 +25,12 @@ public:
      * Write the next block to the output file.
      */
     virtual void WriteNextBlock(const elBlock& Block, bool LastBlock);
+
+    /**
+     * Write only a header to the output file.
+     */
+    void WriteHeader(const elBlock& Block);
+
+private:
+    bool m_isLoop;
 };

@@ -10,7 +10,8 @@
 #include "../Parsers/ParserVersion6.h"
 
 elSingleBlockLoader::elSingleBlockLoader() :
-    m_Compression(0)
+    m_Compression(0),
+    isSecondPart(false)
 {
     return;
 }
@@ -35,21 +36,61 @@ bool elSingleBlockLoader::Initialize(std::istream* Input)
     uint8_t Compression;
     uint8_t ChannelValue;
     uint16_t SampleRate;
-    uint32_t TotalSamples1;
+    uint32_t TotalSamples;
+    uint32_t StartingPartSamples = 0;
     uint32_t BlockSize;
-    uint32_t TotalSamples2;
+    uint32_t FirstPartSamples;
+
+    if (StartOffset != 0)
+    {
+        m_Input->seekg(4);
+        m_Input->read((char*)&TotalSamples, 4);
+        Swap(TotalSamples);
+        if ((TotalSamples & 0x20000000) != 0)
+        {
+            // The track is a loop, with a starting part and a main part
+            m_Input->read((char*)&StartingPartSamples, 4);
+            Swap(StartingPartSamples);
+            TotalSamples = (TotalSamples & 0x1FFFFFFF);
+            uint32_t MainPartSamples;
+            m_Input->seekg(StartOffset + 4);
+            m_Input->read((char*)&MainPartSamples, 4);
+            Swap(MainPartSamples);
+            if (StartingPartSamples + MainPartSamples == TotalSamples)
+            {
+                VERBOSE("L: single block loader, main part of the loop");
+                isSecondPart = true;
+                m_Input->seekg(0);
+                m_Input->read((char*)&Compression, 1);
+                m_Compression = Compression;
+                m_Input->clear();
+                m_Input->seekg(StartOffset);
+                return true;
+            }
+        }
+        m_Input->clear();
+        m_Input->seekg(StartOffset);
+    }
     
     m_Input->read((char*)&Compression, 1);
     m_Input->read((char*)&ChannelValue, 1);
     m_Input->read((char*)&SampleRate, 2);
-    m_Input->read((char*)&TotalSamples1, 4);
-    m_Input->read((char*)&BlockSize, 4);
-    m_Input->read((char*)&TotalSamples2, 4);
+    m_Input->read((char*)&TotalSamples, 4);
 
     Swap(SampleRate);
-    Swap(TotalSamples1);
+    Swap(TotalSamples);
+    if ((TotalSamples & 0x20000000) != 0)
+    {
+        m_Input->read((char*)&StartingPartSamples, 4);
+        Swap(StartingPartSamples);
+    }
+    TotalSamples = (TotalSamples & 0x1FFFFFFF);
+
+    m_Input->read((char*)&BlockSize, 4);
+    m_Input->read((char*)&FirstPartSamples, 4);
+
     Swap(BlockSize);
-    Swap(TotalSamples2);
+    Swap(FirstPartSamples);
 
     // Make sure its valid
     if (Compression < 5 || Compression > 7)
@@ -64,9 +105,14 @@ bool elSingleBlockLoader::Initialize(std::istream* Input)
         VERBOSE("L: single block loader incorrect because of channel value");
         return false;
     }
-    if (TotalSamples1 != TotalSamples2)
+    if ((StartingPartSamples == 0) && (TotalSamples != FirstPartSamples))
     {
-        VERBOSE("L: single block loader incorrect because total samples don't equal each other");
+        VERBOSE("L: single block loader incorrect because total samples don't equal first (unique) part samples");
+        return false;
+    }
+    if ((StartingPartSamples != 0) && (StartingPartSamples != FirstPartSamples))
+    {
+        VERBOSE("L: single block loader incorrect because loop starting part samples don't equal first part samples");
         return false;
     }
     m_Input->seekg(0, std::ios_base::end);
@@ -75,6 +121,7 @@ bool elSingleBlockLoader::Initialize(std::istream* Input)
         VERBOSE("L: single block loader incorrect because of size");
         return false;
     }
+
 
     VERBOSE("L: single block loader correct");
     m_Input->clear();
@@ -95,21 +142,33 @@ bool elSingleBlockLoader::ReadNextBlock(elBlock& Block)
     uint8_t Compression;
     uint8_t ChannelValue;
     uint16_t SampleRate;
-    uint32_t TotalSamples1;
+    uint32_t TotalSamples;
+    uint32_t StartingPartSamples = 0;
     uint32_t BlockSize;
-    uint32_t TotalSamples2;
+    uint32_t FirstPartSamples;
 
-    m_Input->read((char*)&Compression, 1);
-    m_Input->read((char*)&ChannelValue, 1);
-    m_Input->read((char*)&SampleRate, 2);
-    m_Input->read((char*)&TotalSamples1, 4);
+    if (!isSecondPart)
+    {
+        m_Input->read((char*)&Compression, 1);
+        m_Input->read((char*)&ChannelValue, 1);
+        m_Input->read((char*)&SampleRate, 2);
+        m_Input->read((char*)&TotalSamples, 4);
+
+        Swap(SampleRate);
+        Swap(TotalSamples);
+        if ((TotalSamples & 0x20000000) != 0)
+        {
+            // The track is a loop, with a starting part and a main part
+            m_Input->read((char*)&StartingPartSamples, 4);
+            Swap(StartingPartSamples);
+        }
+        TotalSamples = (TotalSamples & 0x1FFFFFFF);
+    }
     m_Input->read((char*)&BlockSize, 4);
-    m_Input->read((char*)&TotalSamples2, 4);
+    m_Input->read((char*)&FirstPartSamples, 4);
 
-    Swap(SampleRate);
-    Swap(TotalSamples1);
     Swap(BlockSize);
-    Swap(TotalSamples2);
+    Swap(FirstPartSamples);
 
     // Now load the data
     BlockSize -= 8;
@@ -119,7 +178,7 @@ bool elSingleBlockLoader::ReadNextBlock(elBlock& Block)
 
     Block.Clear();
     Block.Data = Data;
-    Block.SampleCount = TotalSamples1;
+    Block.SampleCount = FirstPartSamples;
     Block.Size = BlockSize;
     Block.Offset = Offset;
 
