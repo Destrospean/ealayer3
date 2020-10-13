@@ -600,7 +600,7 @@ int Encode(SArguments& Args)
             {
                 if (First)
                 {
-                    elUncompressedSampleFrames& Usf = LastFrame->Gr[1].Uncomp; // mis 1 c tout
+                    elUncompressedSampleFrames& Usf = LastFrame->Gr[1].Uncomp; // need to be in second granule
                     unsigned int TotalCount;
                     WasUsed = true;
                     Usf.Count = ENCODER_UNCOM_SAMPLES;
