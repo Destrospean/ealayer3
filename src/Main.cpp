@@ -27,6 +27,14 @@
 
 #include "Bitstream.h"
 
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#define SET_BINARY_MODE() _setmode(_fileno(stdout), _O_BINARY)
+#else
+#define SET_BINARY_MODE()
+#endif
+
 int g_Verbose = 0;
 
 enum EOutputFormat
@@ -68,6 +76,7 @@ struct SArguments
         OutputFormat(EOF_AUTO),
         OutputEALayer3(EOEA_HEADERLESS),
         OutputLoop(false),
+        OutputAsFile(true),
 
         DecodeParser(elFileDecoder::P_AUTO),
         DecodeOutFormat(elFileDecoder::F_AUTO)
@@ -86,6 +95,7 @@ struct SArguments
     EOutputFormat OutputFormat;
     EOutputEALayer3 OutputEALayer3;
     bool OutputLoop;
+    bool OutputAsFile;
 
     elFileDecoder::Parser DecodeParser;
     elFileDecoder::Format DecodeOutFormat;
@@ -158,6 +168,10 @@ bool ParseArguments(SArguments& Args, unsigned long Argc, char* Argv[])
                 Args.StreamIndex = atoi(Argv[i++]) - 1;
                 Args.AllStreams = false;
             }
+        }
+        else if (Arg == "-p" || Arg == "--pipe")
+        {
+            Args.OutputAsFile = false;
         }
         else if (Arg == "-i" || Arg == "--offset")
         {
@@ -238,6 +252,7 @@ void ShowUsage(const std::string& Program)
     std::cout << "  -i, --offset Offset   Specify the offset in the file to begin at." << std::endl;
     std::cout << "  -o, --output File     Specify the output filename (.mp3)." << std::endl;
     std::cout << "  -s, --stream Index    Specify which stream to extract, or all." << std::endl;
+    std::cout << "  -p, --pipe            Output to standard output instead of a file (for piping)." << std::endl;
     std::cout << "  -m, --mp3             Output to MP3 (no information loss!)." << std::endl;
     std::cout << "  -w, --wave            Output to Microsoft WAV." << std::endl;
     std::cout << "  -mc, --multi-wave     Output to a multi-channel Microsoft WAV." << std::endl;
@@ -283,6 +298,8 @@ void ShowUsage(const std::string& Program)
 
 int main(int Argc, char** Argv)
 {
+    SET_BINARY_MODE();
+
     // Parse the arguments
     SArguments Args;
     bool ArgParse;
@@ -365,7 +382,7 @@ int main(int Argc, char** Argv)
             decoder.SetStream(Args.StreamIndex);
         }
 
-        decoder.SetOutput(Args.OutputFilename, Args.DecodeOutFormat);
+        decoder.SetOutput(Args.OutputFilename, Args.DecodeOutFormat, Args.OutputAsFile);
         decoder.Process();
     }
     catch (elParserException& E)

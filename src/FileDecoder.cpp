@@ -100,8 +100,9 @@ elFileDecoder::Parser elFileDecoder::GetParser() const
 }
 
 
-void elFileDecoder::SetOutput(const std::string& baseFilename, elFileDecoder::Format format)
+void elFileDecoder::SetOutput(const std::string& baseFilename, elFileDecoder::Format format, bool asFile)
 {
+    this->outputAsFile = asFile;
     this->outputFilename = baseFilename;
     this->outputFormat = format;
     return;
@@ -337,6 +338,12 @@ std::string elFileDecoder::GenOutputFilename(const std::string& append) const
 
 void elFileDecoder::WriteSingleStream(elMpegGenerator& gen)
 {
+    if (!outputAsFile)
+    {
+        WriteMp3OrWave(std::cout, gen, inputStream);
+        return;
+    }
+
     // Get output file name
     std::string filename;
     if (currentPart == 0)
@@ -366,6 +373,12 @@ void elFileDecoder::WriteAllStreams(elMpegGenerator& gen)
     const int count = gen.GetStreamCount();
     for (unsigned int i = 0; i < count; i++)
     {
+        if (!outputAsFile)
+        {
+            WriteMp3OrWave(std::cout, gen, i);
+            continue;
+        }
+
         // Get output file name
         std::string filename;
         if (currentPart == 0)
@@ -487,7 +500,7 @@ void elFileDecoder::WriteMultiWave(elMpegGenerator& gen)
 }
 
 
-void elFileDecoder::WriteMp3OrWave(std::ofstream& output, elMpegGenerator& gen, unsigned int index)
+void elFileDecoder::WriteMp3OrWave(std::ostream& output, elMpegGenerator& gen, unsigned int index)
 {
     switch (outputFormat)
     {
@@ -501,7 +514,7 @@ void elFileDecoder::WriteMp3OrWave(std::ofstream& output, elMpegGenerator& gen, 
 }
 
 
-void elFileDecoder::WriteMp3(std::ofstream& output, elMpegGenerator& gen, unsigned int index)
+void elFileDecoder::WriteMp3(std::ostream& output, elMpegGenerator& gen, unsigned int index)
 {
     // Create our buffer
     const unsigned int mpegBufferSize = MAX_MPEG_FRAME_BUFFER;
@@ -519,7 +532,7 @@ void elFileDecoder::WriteMp3(std::ofstream& output, elMpegGenerator& gen, unsign
 }
 
 
-void elFileDecoder::WriteWave(std::ofstream& output, elMpegGenerator& gen, unsigned int index)
+void elFileDecoder::WriteWave(std::ostream& output, elMpegGenerator& gen, unsigned int index)
 {
     // Create our buffer
     const unsigned int pcmBufferSamples = elPcmOutputStream::RecommendBufferSize();

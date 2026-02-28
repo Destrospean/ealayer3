@@ -56,7 +56,7 @@ public:
     /**
      * Set the base output filename as well as the format to try to write to.
      */
-    void SetOutput(const std::string& baseFilename, Format format = F_AUTO);
+    void SetOutput(const std::string& baseFilename, Format format = F_AUTO, bool asFile = true);
     
     /**
      * Return the output file name.
@@ -81,6 +81,7 @@ private:
     std::streamoff inputOffset;
     int inputStream;
     Parser inputParser;
+    bool outputAsFile;
     std::string outputFilename;
     Format outputFormat;
     
@@ -93,9 +94,9 @@ private:
     void WriteSingleStream(elMpegGenerator& gen);
     void WriteAllStreams(elMpegGenerator& gen);
     void WriteMultiWave(elMpegGenerator& gen);
-    void WriteMp3OrWave(std::ofstream& output, elMpegGenerator& gen, unsigned int index);
-    void WriteMp3(std::ofstream& output, elMpegGenerator& gen, unsigned int index);
-    void WriteWave(std::ofstream& output, elMpegGenerator& gen, unsigned int index);
+    void WriteMp3OrWave(std::ostream& output, elMpegGenerator& gen, unsigned int index);
+    void WriteMp3(std::ostream& output, elMpegGenerator& gen, unsigned int index);
+    void WriteWave(std::ostream& output, elMpegGenerator& gen, unsigned int index);
 };
 
 
