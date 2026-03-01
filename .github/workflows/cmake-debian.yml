@@ -42,4 +42,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ealayer3-linux-amd64
-        path: build
+        path: |
+          ealayer3
+          ealayer3testdriver
