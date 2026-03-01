@@ -43,5 +43,5 @@ jobs:
       with:
         name: ealayer3-linux-amd64
         path: |
-          ealayer3
-          ealayer3testdriver
+          ./ealayer3
+          ./ealayer3testdriver
