@@ -35,7 +35,7 @@ public:
     /**
      * Set the input filename and the offset in the input stream to start at.
      */
-    void SetInput(const std::string& filename, std::streamoff offset = 0);
+    void SetInput(const std::string& filename, std::streamoff offset = 0, bool asFile = true);
     
     /**
      * Get the input filename.
@@ -77,6 +77,7 @@ public:
     
     
 private:
+    bool inputAsFile;
     std::string inputFilename;
     std::streamoff inputOffset;
     int inputStream;
@@ -88,7 +89,8 @@ private:
 private:
     int currentPart;
     
-    void ProcessPart(std::ifstream& input);
+    void ProcessInternal(std::istream& input);
+    void ProcessPart(std::istream& input);
     void AutoSetOutputFormat();
     std::string GenOutputFilename(const std::string& append) const;
     void WriteSingleStream(elMpegGenerator& gen);

@@ -77,6 +77,7 @@ struct SArguments
         OutputEALayer3(EOEA_HEADERLESS),
         OutputLoop(false),
         OutputAsFile(true),
+        InputAsFile(true),
 
         DecodeParser(elFileDecoder::P_AUTO),
         DecodeOutFormat(elFileDecoder::F_AUTO)
@@ -96,6 +97,7 @@ struct SArguments
     EOutputEALayer3 OutputEALayer3;
     bool OutputLoop;
     bool OutputAsFile;
+    bool InputAsFile;
 
     elFileDecoder::Parser DecodeParser;
     elFileDecoder::Format DecodeOutFormat;
@@ -169,7 +171,11 @@ bool ParseArguments(SArguments& Args, unsigned long Argc, char* Argv[])
                 Args.AllStreams = false;
             }
         }
-        else if (Arg == "-p" || Arg == "--pipe")
+        else if (Arg == "-pi" || Arg == "--pipe-in")
+        {
+            Args.InputAsFile = false;
+        }
+        else if (Arg == "-po" || Arg == "--pipe-out")
         {
             Args.OutputAsFile = false;
         }
@@ -252,7 +258,8 @@ void ShowUsage(const std::string& Program)
     std::cout << "  -i, --offset Offset   Specify the offset in the file to begin at." << std::endl;
     std::cout << "  -o, --output File     Specify the output filename (.mp3)." << std::endl;
     std::cout << "  -s, --stream Index    Specify which stream to extract, or all." << std::endl;
-    std::cout << "  -p, --pipe            Output to standard output instead of a file (for piping)." << std::endl;
+    std::cout << "  -pi, --pipe-in        Pipe a binary stream as input instead of a file." << std::endl;
+    std::cout << "  -po, --pipe-out       Output to standard output instead of a file (for piping)." << std::endl;
     std::cout << "  -m, --mp3             Output to MP3 (no information loss!)." << std::endl;
     std::cout << "  -w, --wave            Output to Microsoft WAV." << std::endl;
     std::cout << "  -mc, --multi-wave     Output to a multi-channel Microsoft WAV." << std::endl;
@@ -335,8 +342,12 @@ int main(int Argc, char** Argv)
 
     if (Args.InputFilename.empty())
     {
-        std::cerr << "You must specify an input filename." << std::endl;
-        return 1;
+        if (Args.InputAsFile)
+        {
+            std::cerr << "You must specify an input filename." << std::endl;
+            return 1;
+        }
+        Args.InputFilename = "output";
     }
 
     // Do we want to encode the file?
@@ -370,7 +381,7 @@ int main(int Argc, char** Argv)
     {
         elFileDecoder decoder;
 
-        decoder.SetInput(Args.InputFilename, Args.Offset);
+        decoder.SetInput(Args.InputFilename, Args.Offset, Args.InputAsFile);
         decoder.SetParser(Args.DecodeParser);
 
         if (Args.AllStreams)

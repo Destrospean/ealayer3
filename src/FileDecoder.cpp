@@ -16,6 +16,7 @@
 #include "WaveWriter.h"
 
 #include <fstream>
+#include <sstream>
 #include <stdexcept>
 #include <boost/format.hpp>
 
@@ -60,8 +61,9 @@ elFileDecoder::~elFileDecoder()
 }
 
 
-void elFileDecoder::SetInput(const std::string& filename, std::streamoff offset)
+void elFileDecoder::SetInput(const std::string& filename, std::streamoff offset, bool asFile)
 {
+    this->inputAsFile = asFile;
     this->inputFilename = filename;
     this->inputOffset = offset;
     return;
@@ -123,20 +125,31 @@ elFileDecoder::Format elFileDecoder::GetOutputFormat() const
 
 void elFileDecoder::Process()
 {
-    // First, make sure we've got some kind of output format
-    if (outputFormat == F_AUTO)
+    if (inputAsFile)
     {
-        // Autodectect based on extension
+        // Open the input file
+        std::ifstream input;
+        input.open(inputFilename.c_str(), std::ios_base::in | std::ios_base::binary);
+        if (!input.is_open())
+        {
+            throw (runtime_error("Could not open input file '" + inputFilename + "'."));
+        }
+        ProcessInternal(input);
+        return;
     }
-    
-    // Open the input file
-    std::ifstream input;
-    input.open(inputFilename.c_str(), std::ios_base::in | std::ios_base::binary);
-    if (!input.is_open())
+    std::string inputText = "";
+    std::string line;
+    while (std::getline(std::cin, line))
     {
-        throw (runtime_error("Could not open input file '" + inputFilename + "'."));
+        inputText.append(line + "\n");
     }
-    
+    std::istringstream inputTextStream(inputText);
+    ProcessInternal(inputTextStream);
+}
+
+
+void elFileDecoder::ProcessInternal(std::istream& input)
+{
     // Get file size
     std::streampos fileSize;
     input.seekg(0, std::ios_base::end);
@@ -146,7 +159,7 @@ void elFileDecoder::Process()
     // Process the first part
     currentPart = 0;
     ProcessPart(input);
-    
+
     // Are there more parts?
     while (!input.eof() && (4 + input.tellg()) < fileSize)
     {
@@ -174,7 +187,7 @@ void elFileDecoder::Process()
 }
 
 
-void elFileDecoder::ProcessPart(std::ifstream& input)
+void elFileDecoder::ProcessPart(std::istream& input)
 {
     // Determine the input's file type here
     elBlockLoaderSelector loader;
