@@ -30,9 +30,11 @@
 #ifdef _WIN32
 #include <io.h>
 #include <fcntl.h>
-#define SET_BINARY_MODE() _setmode(_fileno(stdout), _O_BINARY)
+#define SET_BINARY_MODE_INPUT() _setmode(_fileno(stdin), _O_BINARY)
+#define SET_BINARY_MODE_OUTPUT() _setmode(_fileno(stdout), _O_BINARY)
 #else
-#define SET_BINARY_MODE()
+#define SET_BINARY_MODE_INPUT()
+#define SET_BINARY_MODE_OUTPUT()
 #endif
 
 int g_Verbose = 0;
@@ -305,7 +307,8 @@ void ShowUsage(const std::string& Program)
 
 int main(int Argc, char** Argv)
 {
-    SET_BINARY_MODE();
+    SET_BINARY_MODE_INPUT();
+    SET_BINARY_MODE_OUTPUT();
 
     // Parse the arguments
     SArguments Args;
