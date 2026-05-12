@@ -391,12 +391,12 @@ bool elMpegParser::ProcessMpegFrame(elFrame& Fr, elMpegParser::elRawFrameHeader&
     }
 
     // Make sure this frame actually has data
-    if (DataSize < 1)
-    {
-        VERBOSE("Skipped empty frame");
-        //VERBOSE("");
-        return true;
-    }
+    //if (DataSize < 1)
+    //{
+    //    VERBOSE("Skipped empty frame");
+    //    VERBOSE("");
+    //    return true;
+    //}
 
     // Set used.
     if (Hdr.Version == MV_1)
